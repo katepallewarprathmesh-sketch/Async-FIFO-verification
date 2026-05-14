@@ -42,6 +42,8 @@ module tb_sync_fifo;
 
   localparam int DATA_WIDTH = 8;
   localparam int DEPTH      = 16;
+  localparam int ADDR_WIDTH = $clog2(DEPTH);
+  localparam logic [ADDR_WIDTH:0] DEPTH_L = DEPTH[ADDR_WIDTH:0];
 
   logic clk;
   logic rst_n;
@@ -66,6 +68,18 @@ module tb_sync_fifo;
   integer errors;
 
   logic [DATA_WIDTH-1:0] expected_data_queue[$];
+
+  function automatic logic [DATA_WIDTH-1:0] random_data();
+    int rand32;
+    rand32 = $urandom;
+    return rand32[DATA_WIDTH-1:0];
+  endfunction
+
+  function automatic logic [ADDR_WIDTH:0] queue_size();
+    int size32;
+    size32 = expected_data_queue.size();
+    return size32[ADDR_WIDTH:0];
+  endfunction
 
   //---------------------------------------------------------
   // Clock Generation
@@ -196,7 +210,7 @@ module tb_sync_fifo;
   //---------------------------------------------------------
   task automatic check_invariants();
 
-    if (vif.count != expected_data_queue.size()) begin
+    if (vif.count != queue_size()) begin
       $error(
         "Count mismatch: count=%0d expected=%0d at time %0t",
         vif.count,
@@ -206,7 +220,7 @@ module tb_sync_fifo;
       errors++;
     end
 
-    if (vif.full !== (vif.count == DEPTH)) begin
+    if (vif.full !== (vif.count == DEPTH_L)) begin
       $error(
         "Full flag mismatch at time %0t: full=%0b count=%0d",
         $time,
@@ -216,7 +230,7 @@ module tb_sync_fifo;
       errors++;
     end
 
-    if (vif.empty !== (vif.count == 0)) begin
+    if (vif.empty !== (vif.count == '0)) begin
       $error(
         "Empty flag mismatch at time %0t: empty=%0b count=%0d",
         $time,
@@ -226,7 +240,7 @@ module tb_sync_fifo;
       errors++;
     end
 
-    if (vif.count > DEPTH) begin
+    if (vif.count > DEPTH_L) begin
       $error(
         "Count out of bounds: count=%0d at time %0t",
         vif.count,
@@ -267,7 +281,7 @@ module tb_sync_fifo;
     $display("[TEST] Running full/empty boundary test...");
 
     while (!vif.full) begin
-      sample_and_check(1, 0, $urandom);
+        sample_and_check(1, 0, random_data());
     end
 
     if (!vif.full) begin
@@ -294,13 +308,13 @@ module tb_sync_fifo;
   //---------------------------------------------------------
   task automatic illegal_operation_test();
 
-    integer count_before;
+    logic [ADDR_WIDTH:0] count_before;
 
     $display("[TEST] Running overflow/underflow injection test...");
 
     // Fill FIFO
     while (!vif.full) begin
-      sample_and_check(1, 0, $urandom);
+      sample_and_check(1, 0, random_data());
     end
 
     count_before = vif.count;
@@ -352,9 +366,9 @@ module tb_sync_fifo;
 
     for (i = 0; i < cycles; i++) begin
 
-      wr   = $urandom_range(0, 1);
-      rd   = $urandom_range(0, 1);
-      data = $urandom;
+      wr   = ($urandom_range(0, 1) == 1);
+      rd   = ($urandom_range(0, 1) == 1);
+      data = random_data();
 
       if (vif.full)
         wr = 0;
