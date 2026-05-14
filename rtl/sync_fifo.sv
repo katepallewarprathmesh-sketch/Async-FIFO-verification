@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module sync_fifo #(
     parameter int DATA_WIDTH = 8,
     parameter int DEPTH = 16,
@@ -14,13 +16,15 @@ module sync_fifo #(
     output logic [ADDR_WIDTH:0] count
 );
 
+    localparam logic [ADDR_WIDTH:0] DEPTH_L = DEPTH[ADDR_WIDTH:0];
+
     logic [DATA_WIDTH-1:0] mem [0:DEPTH-1];
     logic [ADDR_WIDTH-1:0] wr_ptr;
     logic [ADDR_WIDTH-1:0] rd_ptr;
     logic [ADDR_WIDTH:0] used;
 
-    assign full = (used == DEPTH);
-    assign empty = (used == 0);
+    assign full = (used == DEPTH_L);
+    assign empty = (used == '0);
     assign count = used;
 
     always_ff @(posedge clk or negedge rst_n) begin
